@@ -1,0 +1,11 @@
+{
+    "Subscriptions": [
+        {
+            "SubscriptionArn": "arn:aws:sns:eu-west-1:272885088646:CONNECT-SYSTEST-events-general:51403e7e-a2ce-4894-ac73-d355c6103600",
+            "Owner": "272885088646",
+            "Protocol": "email",
+            "Endpoint": "ops2@datafr.ee",
+            "TopicArn": "arn:aws:sns:eu-west-1:272885088646:CONNECT-SYSTEST-events-general"
+        }
+    ]
+}

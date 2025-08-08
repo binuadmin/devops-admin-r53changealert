@@ -1,0 +1,38 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Cross-account Route 53 monitoring role for SYSTEST account
+
+Parameters:
+  Project:
+    Type: String
+    Default: admin
+  Environment:
+    Type: String
+    Default: prod
+
+Resources:
+  CrossAccountR53MonitoringRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Project}-${Environment}-CrossAccountR53MonitoringRole'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: 'arn:aws:iam::272885088646:root'  # SYSTEST account
+            Action: sts:AssumeRole
+            Condition:
+              StringEquals:
+                'sts:ExternalId': 'R53Monitoring'
+      Policies:
+        - PolicyName: AllowCloudTrailAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - cloudtrail:LookupEvents
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'

@@ -1,0 +1,17 @@
+----------------------------------------------------------------------------------------------------------------
+|                                               ListSubscriptions                                              |
++---------------------------------------------------------------------------------+----------------------------+
+|  [1m[34marn:aws:sns:eu-west-1:272885088646:ddirect_ha_poc_sns_standard[0m                 |  [1m[34mweidong.xu@datafr.ee[0m      |
+|  [1m[34marn:aws:sns:eu-west-1:272885088646:CONNECT-SYSTEST-events-critical[0m             |  [1m[34mops2@datafr.ee[0m            |
+|  [1m[34marn:aws:sns:eu-west-1:272885088646:APPADMIN-SYSTEST-events-general[0m             |  [1m[34mweidong.xu@datafree.tech[0m  |
+|  [1m[34marn:aws:sns:eu-west-1:272885088646:CICD-SYSTEST-events-general[0m                 |  [1m[34mops2@bi.nu[0m                |
+|  [1m[34marn:aws:sns:eu-west-1:272885088646:test-admin-pages[0m                            |  [1m[34mvikram.aditya@bi.nu[0m       |
+|  [1m[34marn:aws:sns:eu-west-1:272885088646:DEVOPS-SYSTEST-events-critical[0m              |  [1m[34mops2@bi.nu[0m                |
+|  [1m[34marn:aws:sns:eu-west-1:272885088646:DEVOPS-SYSTEST-build-alerts[0m                 |  [1m[34mbuild-alert@datafr.ee[0m     |
+|  [1m[34marn:aws:sns:eu-west-1:272885088646:DEVOPS-SYSTEST-build-alerts[0m                 |  [1m[34mbuild-alert@datafr.ee[0m     |
+|  [1m[34marn:aws:sns:eu-west-1:272885088646:devops-events-critical[0m                      |  [1m[34mops1@datafr.ee[0m            |
+|  [1m[34marn:aws:sns:eu-west-1:272885088646:CONNECT-SYSTEST-events-general[0m              |  [1m[34mops2@datafr.ee[0m            |
+|  [1m[34marn:aws:sns:eu-west-1:272885088646:CICD-SYSTEST-events-critical[0m                |  [1m[34mops2@bi.nu[0m                |
+|  [1m[34marn:aws:sns:eu-west-1:272885088646:DEVOPS-SYSTEST-events-general[0m               |  [1m[34mops2@bi.nu[0m                |
+|  [1m[34marn:aws:sns:eu-west-1:272885088646:ddirect_ha_poc_lambda_dest_notif_on_failure[0m |  [1m[34mweidong.xu@datafr.ee[0m      |
++---------------------------------------------------------------------------------+----------------------------+

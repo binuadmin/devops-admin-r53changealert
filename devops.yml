@@ -1,0 +1,6 @@
+owner: devops
+project: admin
+service: r53changealert
+deploy:
+  deployOnCommit: true
+  deployScript: deploy.sh

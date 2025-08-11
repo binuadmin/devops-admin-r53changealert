@@ -1,10 +1,9 @@
-import { Stack, StackProps, Tags, Fn } from 'aws-cdk-lib';
-import * as cdk from 'aws-cdk-lib';
-import { Construct } from 'constructs';
-import { Rule, Schedule } from 'aws-cdk-lib/aws-events';
+import { Stack, StackProps, Tags, Duration } from 'aws-cdk-lib';
+import { Rule } from 'aws-cdk-lib/aws-events';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
 import { Function, Runtime, Code } from 'aws-cdk-lib/aws-lambda';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { Construct } from 'constructs';
 
 interface R53ChangeAlertStackProps extends StackProps {
   project: string;
@@ -24,94 +23,51 @@ export class R53ChangeAlertStack extends Stack {
     const SERVICE = props.service.toUpperCase();
     const service = props.service.toLowerCase();
 
-    // Constructed ARNs for cross-region access:
-    const generalNotificationTopic = ENVIRONMENT === 'PROD' 
-      ? `arn:aws:sns:eu-west-1:${this.account}:${PROJECT}-SYSTEST-events-general` // Use SYSTEST SNS from SYSTEST account
-      : `arn:aws:sns:eu-west-1:${this.account}:${PROJECT}-${ENVIRONMENT}-events-general`;
+    // SNS topic configuration for each environment
+    const generalNotificationTopic = ENVIRONMENT === 'PRODVIR' 
+      ? `arn:aws:sns:us-east-1:${this.account}:admin-prod-events-general`
+      : `arn:aws:sns:us-east-1:${this.account}:MONITORING-SYSTEST-events-general`; // ← Updated for SYSTEST
 
     // Environment-specific Lambda code
-    const lambdaCode = ENVIRONMENT === 'PROD' 
+    const lambdaCode = ENVIRONMENT === 'PRODVIR' 
       ? `
-// This code runs in SYSTEST account but monitors master account
 const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
-const { STSClient, AssumeRoleCommand } = require('@aws-sdk/client-sts');
-const { CloudTrailClient, LookupEventsCommand } = require('@aws-sdk/client-cloudtrail');
-
-const snsClient = new SNSClient({ region: 'eu-west-1' });
-const stsClient = new STSClient({ region: 'us-east-1' });
+const snsClient = new SNSClient({ region: 'us-east-1' });
 
 exports.handler = async (event) => {
-    console.log('Checking Route 53 events from master account via cross-account role');
+    console.log('Received Route 53 event from MASTER account:', JSON.stringify(event, null, 2));
     
-    // Assume role in master account
-    const assumeRoleCommand = new AssumeRoleCommand({
-        RoleArn: 'arn:aws:iam::872442554780:role/admin-prod-CrossAccountR53MonitoringRole',
-        RoleSessionName: 'R53Monitoring',
-        ExternalId: 'R53Monitoring'
-    });
+    const message = {
+        eventTime: event.time,
+        eventName: event.detail?.eventName || 'Unknown',
+        eventSource: event.detail?.eventSource || 'Unknown',
+        sourceIPAddress: event.detail?.sourceIPAddress || 'Unknown',
+        userIdentity: event.detail?.userIdentity || {},
+        requestParameters: event.detail?.requestParameters || {},
+        responseElements: event.detail?.responseElements || {},
+        accountId: event.account || 'Unknown'
+    };
+    
+    const params = {
+        TopicArn: process.env.GENERAL_NOTIFICATION_TOPIC,
+        Subject: \`MASTER Account Route 53 Change Alert: \${message.eventName}\`,
+        Message: JSON.stringify(message, null, 2)
+    };
     
     try {
-        const credentials = await stsClient.send(assumeRoleCommand);
-        
-        // Create CloudTrail client with master account credentials
-        const cloudTrailClient = new CloudTrailClient({
-            region: 'us-east-1',
-            credentials: {
-                accessKeyId: credentials.Credentials.AccessKeyId,
-                secretAccessKey: credentials.Credentials.SecretAccessKey,
-                sessionToken: credentials.Credentials.SessionToken
-            }
-        });
-        
-        // Look up recent Route 53 events from master account
-        const lookupCommand = new LookupEventsCommand({
-            LookupAttributes: [
-                {
-                    AttributeKey: 'EventSource',
-                    AttributeValue: 'route53.amazonaws.com'
-                }
-            ],
-            StartTime: new Date(Date.now() - 5 * 60 * 1000), // Last 5 minutes
-            MaxItems: 10
-        });
-        
-        const events = await cloudTrailClient.send(lookupCommand);
-        
-        for (const event of events.Events || []) {
-            if (['ChangeResourceRecordSets', 'CreateHostedZone', 'DeleteHostedZone', 'UpdateHostedZoneComment'].includes(event.EventName)) {
-                const message = {
-                    eventTime: event.EventTime,
-                    eventName: event.EventName,
-                    eventSource: 'route53.amazonaws.com',
-                    sourceIPAddress: event.SourceIPAddress,
-                    userIdentity: JSON.parse(event.CloudTrailEvent).userIdentity,
-                    requestParameters: JSON.parse(event.CloudTrailEvent).requestParameters,
-                    responseElements: JSON.parse(event.CloudTrailEvent).responseElements,
-                    masterAccountId: '872442554780'
-                };
-                
-                const params = {
-                    TopicArn: process.env.GENERAL_NOTIFICATION_TOPIC,
-                    Subject: \`Master Account Route 53 Change (from SYSTEST): \${event.EventName}\`,
-                    Message: JSON.stringify(message, null, 2)
-                };
-                
-                await snsClient.send(new PublishCommand(params));
-                console.log('Published Route 53 change from master account:', event.EventName);
-            }
-        }
-        
+        const command = new PublishCommand(params);
+        const result = await snsClient.send(command);
+        console.log('Successfully published to SNS:', result.MessageId);
         return { statusCode: 200, body: 'Success' };
-        
     } catch (error) {
-        console.error('Failed to assume role or query CloudTrail:', error);
+        console.error('Failed to publish to SNS:', error);
         throw error;
     }
 };
-      `
+`
       : `
 const { SNSClient, PublishCommand } = require('@aws-sdk/client-sns');
-const snsClient = new SNSClient({ region: 'eu-west-1' });
+const snsClient = new SNSClient({ region: 'us-east-1' }); // ← Change from eu-west-1 to us-east-1
 
 exports.handler = async (event) => {
     console.log('Received Route 53 event from SYSTEST account:', JSON.stringify(event, null, 2));
@@ -143,14 +99,14 @@ exports.handler = async (event) => {
         throw error;
     }
 };
-      `;
+`;
 
     // Lambda function with inline code (no Docker required)
     const forwarderFunction = new Function(this, 'Route53EventForwarder', {
       functionName: `${project}-${environment}-r53-event-forwarder`,
       runtime: Runtime.NODEJS_20_X,
       handler: 'index.handler',
-      timeout: cdk.Duration.seconds(60),  // Increased for cross-account calls
+      timeout: Duration.seconds(60),  // Increased for cross-account calls
       code: Code.fromInline(lambdaCode),
       environment: {
         project, 
@@ -168,46 +124,24 @@ exports.handler = async (event) => {
       ]
     }));
 
-    // Add cross-account assume role permission (PROD only)
-    if (ENVIRONMENT === 'PROD') {
-      forwarderFunction.addToRolePolicy(new PolicyStatement({
-        actions: ['sts:AssumeRole'],
-        resources: ['arn:aws:iam::872442554780:role/admin-prod-CrossAccountR53MonitoringRole']
-      }));
-      
-      // Add CloudTrail permissions
-      forwarderFunction.addToRolePolicy(new PolicyStatement({
-        actions: [
-          'cloudtrail:LookupEvents'
-        ],
-        resources: ['*']
-      }));
-    }
-
     // EventBridge rule for Route 53 changes (in us-east-1)
-    const eventRule = ENVIRONMENT === 'PROD' 
-      ? new Rule(this, 'Route53MonitoringSchedule', {
-          ruleName: `${project}-${environment}-r53-monitoring-schedule`,
-          description: 'Schedule Route 53 monitoring of master account',
-          schedule: Schedule.rate(cdk.Duration.minutes(5))
-        })
-      : new Rule(this, 'Route53ChangeRule', {
-          ruleName: `${project}-${environment}-r53-changes`,
-          description: 'Detect Route 53 changes',
-          eventPattern: {
-            source: ['aws.route53'],
-            detailType: ['AWS API Call via CloudTrail'],
-            detail: {
-              eventSource: ['route53.amazonaws.com'],
-              eventName: [
-                'ChangeResourceRecordSets',
-                'CreateHostedZone',
-                'DeleteHostedZone',
-                'UpdateHostedZoneComment'
-              ]
-            }
-          }
-        });
+    const eventRule = new Rule(this, 'Route53ChangeRule', {
+      ruleName: `${project}-${environment}-r53-changes`,
+      description: `Detect Route 53 changes in ${environment.toUpperCase()} account`,
+      eventPattern: {
+        source: ['aws.route53'],
+        detailType: ['AWS API Call via CloudTrail'],
+        detail: {
+          eventSource: ['route53.amazonaws.com'],
+          eventName: [
+            'ChangeResourceRecordSets',
+            'CreateHostedZone',
+            'DeleteHostedZone',
+            'UpdateHostedZoneComment'
+          ]
+        }
+      }
+    });
 
     // Add Lambda function as target (same region)
     eventRule.addTarget(new LambdaFunction(forwarderFunction));

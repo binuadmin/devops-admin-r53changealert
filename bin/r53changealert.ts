@@ -17,9 +17,5 @@ const env = {
 }
 
 new R53ChangeAlertStack(app, `${project}-${environment}-r53changealert`.toUpperCase(), {
-    env, 
-    project, 
-    environment, 
-    service, 
-    version
+    env, project, environment, service, version
 });

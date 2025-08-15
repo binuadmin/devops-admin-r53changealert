@@ -54,7 +54,6 @@ export class R53ChangeAlertStack extends Stack {
       environment: {
         project,
         environment,
-        ENVIRONMENT,
         GENERAL_NOTIFICATION_TOPIC: generalNotificationTopic,
         SNS_REGION: snsRegion
       }

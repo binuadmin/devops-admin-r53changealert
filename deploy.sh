@@ -2,6 +2,7 @@
 project=admin
 env=${1}
 service_version=${2}
+service=r53changealert
 
 if [ $# -lt 2 ]; then
   echo "Missing Parameters: deploy.sh environment version"
@@ -22,5 +23,5 @@ fi
 export AWS_REGION=${deploy_region}
 npm install &&
 npm run build &&
-cdk deploy --context project=${project} --context environment=${env} --context service=r53changealert --context version=${service_version} \
+cdk deploy --context project=${project} --context environment=${env} --context service=${service} --context version=${service_version} \
     --require-approval never

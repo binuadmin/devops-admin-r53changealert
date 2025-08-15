@@ -2,14 +2,17 @@ import { Stack, StackProps, Tags, Duration } from 'aws-cdk-lib';
 import { Construct } from 'constructs';
 import { Rule } from 'aws-cdk-lib/aws-events';
 import { LambdaFunction } from 'aws-cdk-lib/aws-events-targets';
-import { Function, Runtime, Code } from 'aws-cdk-lib/aws-lambda';
+import { Runtime } from 'aws-cdk-lib/aws-lambda';
+import { NodejsFunction, SourceMapMode } from 'aws-cdk-lib/aws-lambda-nodejs';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
+import { RetentionDays } from 'aws-cdk-lib/aws-logs';
 
 interface R53ChangeAlertStackProps extends StackProps {
   project: string;
   environment: string;
   service: string;
   version: string;
+  generalNotificationTopic: string;
 }
 
 export class R53ChangeAlertStack extends Stack {
@@ -20,31 +23,42 @@ export class R53ChangeAlertStack extends Stack {
     const ENVIRONMENT = props.environment.toUpperCase();
     const environment = props.environment.toLowerCase();
 
-    // SNS topic configuration for each environment
-    const generalNotificationTopic = ENVIRONMENT === 'PRODVIR' 
-      ? `arn:aws:sns:us-east-1:${this.account}:admin-prod-events-general`
-      : `arn:aws:sns:us-east-1:${this.account}:MONITORING-SYSTEST-events-general`;
+  // Use SNS topic ARN directly from props (no replacement needed)
+  const generalNotificationTopic = props.generalNotificationTopic;
+  // Extract region from SNS topic ARN
+  const snsRegionMatch = generalNotificationTopic.match(/^arn:aws:sns:([a-z0-9-]+):/);
+  if (!snsRegionMatch) {
+    throw new Error(`Could not extract region from SNS topic ARN: ${generalNotificationTopic}`);
+  }
+  const snsRegion = snsRegionMatch[1];
 
-    // Lambda function - references external handler file
-    const forwarderFunction = new Function(this, 'Route53EventForwarder', {
+    // Lambda function using NodejsFunction with entry (same as lambdas project)
+    const forwarderFunction = new NodejsFunction(this, 'Route53EventForwarder', {
       functionName: `${project}-${environment}-r53-event-forwarder`,
       runtime: Runtime.NODEJS_22_X,
-      handler: 'route53-handler.handler',  // ← Points to exported handler function
+      entry: 'src/route53-handler.js',
       timeout: Duration.seconds(60),
-      code: Code.fromAsset('src'),  // ← Points to src directory
+      description: 'Forward Route 53 changes to SNS topic for alerting',
+      logRetention: RetentionDays.ONE_WEEK,
+      memorySize: 128,
+      bundling: {
+        sourceMap: true,
+        sourceMapMode: SourceMapMode.INLINE
+      },
+      initialPolicy: [
+        new PolicyStatement({
+          actions: ['sns:Publish'],
+          resources: [generalNotificationTopic]
+        })
+      ],
       environment: {
-        project, 
-        environment, 
-        ENVIRONMENT_NAME: ENVIRONMENT === 'PRODVIR' ? 'MASTER Account' : 'SYSTEST',
-        GENERAL_NOTIFICATION_TOPIC: generalNotificationTopic
+        project,
+        environment,
+        ENVIRONMENT,
+        GENERAL_NOTIFICATION_TOPIC: generalNotificationTopic,
+        SNS_REGION: snsRegion
       }
     });
-
-    // Grant SNS publish permissions
-    forwarderFunction.addToRolePolicy(new PolicyStatement({
-      actions: ['sns:Publish'],
-      resources: [generalNotificationTopic]
-    }));
 
     // EventBridge rule for Route 53 changes
     const eventRule = new Rule(this, 'Route53ChangeRule', {
@@ -59,7 +73,7 @@ export class R53ChangeAlertStack extends Stack {
             'ChangeResourceRecordSets',
             'CreateHostedZone',
             'DeleteHostedZone',
-            'UpdateHostedZoneComment'
+            'UpdateHostedZoneComment',
           ]
         }
       }

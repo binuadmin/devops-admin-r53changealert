@@ -7,12 +7,13 @@ import * as fs from 'fs';
 
 const app = new cdk.App();
 
-const project = 'admin';
-const environment = process.env.ENVIRONMENT || 'systest';
-const service = 'r53changealert';
-const version = '1.0.0';
+// Get values from context (passed from deploy script)
+const project = app.node.tryGetContext('project');
+const environment = app.node.tryGetContext('environment');
+const service = app.node.tryGetContext('service');
+const version = app.node.tryGetContext('version');
 
-// Load vars file (same pattern as lambdas project)
+// Load vars file
 const varsFile = `vars/${environment}.yml`;
 const varsContent = yaml.load(fs.readFileSync(varsFile, 'utf8')) as any;
 

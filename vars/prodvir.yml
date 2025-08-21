@@ -1,3 +1,0 @@
-account: "872442554780"
-region: "us-east-1"
-generalNotificationTopic: "arn:aws:sns:us-east-1:872442554780:admin-prod-events-general"

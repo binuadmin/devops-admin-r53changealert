@@ -1,0 +1,19 @@
+---
+- name: Create EventBridge stack
+  cloudformation:
+    state: "present"
+    stack_name: "{{ project|upper }}-{{ env|upper }}-EventBridge"
+    template: "roles/event-bridge/files/template.yml"
+    region: "{{ region }}"
+    template_parameters:
+      PROJECT: "{{ project|upper }}"
+      Project: "{{ project|lower }}"
+      ENVIRONMENT: "{{ env|upper }}"
+      Environment: "{{ env|lower }}"
+      ROLE: "{{ role_name|upper }}"
+      Role: "{{ role_name|lower }}"
+      Version: "{{ service_version }}"
+    tags:
+      project: "{{ project|lower }}"
+      environment: "{{ env|lower }}"
+      Version: "{{ service_version }}"

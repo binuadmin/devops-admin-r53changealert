@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Create IAM role for cleaning up resources.
+
+Parameters:
+  PROJECT:
+    Description: Project Identifier
+    Type: String
+  Project:
+    Description: Project Identifier (lower case)
+    Type: String
+  ENVIRONMENT:
+    Description: Project Environment
+    Type: String
+  Environment:
+    Description: Project Environment (lower case)
+    Type: String
+  ROLE:
+    Description: Project Role
+    Type: String
+  Role:
+    Description: Project Role (lower case)
+    Type: String
+  Version:
+    Description: Service version
+    Type: String
+
+Resources:
+  EventBridgeRule:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: "Forwards R53 Events of interest to Devops Ireland"
+      EventBusName: default
+      EventPattern:
+        source:
+          - "aws.route53"
+        detail-type:
+          - "AWS API Call via CloudTrail"
+        detail:
+          eventSource:
+            - "route53.amazonaws.com"
+          eventName:
+            - "ChangeResourceRecordSets"
+            - "CreateHostedZone"
+            - "DeleteHostedZone"
+            - "UpdateHostedZoneComment"
+      Targets:
+        - Arn: "arn:aws:events:eu-west-1:415983589830:event-bus/default"
+          Id: "CrossAccountTarget"
+          RoleArn: !GetAtt EventBridgeIAMRole.Arn
+      State: ENABLED
+
+  EventBridgeIAMRole:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub ${PROJECT}-${ENVIRONMENT}-R53-ForwardEvents
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+        - Effect: Allow
+          Action: "sts:AssumeRole"
+          Principal: {"Service": "events.amazonaws.com"}
+      Policies:
+      - PolicyName: !Sub ${PROJECT}-${ENVIRONMENT}-R53-ForwardEvents
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+            - Effect: Allow
+              Action: "events:PutEvents"
+              Resource: "arn:aws:events:eu-west-1:415983589830:event-bus/default"
